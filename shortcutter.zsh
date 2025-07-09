@@ -4,8 +4,19 @@
 # This file should be sourced in your .zshrc
 
 shortcutter_widget() {
+    # Save the current command line state
+    local saved_buffer="$BUFFER"
+    local saved_cursor="$CURSOR"
+    
+    # Move to next line (fzf pattern - don't clear current line)
+    echo
+    
     # Run shortcutter directly - let it take over the terminal
     shortcutter
+    
+    # Restore the original command line
+    BUFFER="$saved_buffer"
+    CURSOR="$saved_cursor"
     
     # Reset prompt
     zle reset-prompt

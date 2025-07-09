@@ -25,12 +25,26 @@ type tickMsg struct{}
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#7C3AED"))
+			Foreground(lipgloss.Color("#10B981"))
 
-	selectedStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#7C3AED"))
+	selectedBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F97316")).
+			Background(lipgloss.Color("#2D2D2D"))
+
+	unselectedBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#2D2D2D"))
+
+	selectedLineStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#2D2D2D"))
+
+	statusStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280"))
+
+	separatorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280"))
+
+	matchStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#3B82F6"))
 
 	commandStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -80,12 +94,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 
-		case "up", "k":
+		case "up":
 			if m.cursor > 0 {
 				m.cursor--
 			}
 
-		case "down", "j":
+		case "down":
 			if m.cursor < len(m.filtered)-1 {
 				m.cursor++
 			}
@@ -102,6 +116,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(msg.String()) == 1 {
 				m.query += msg.String()
 				m.filtered = m.filterShortcuts()
+				m.cursor = 0
+			}
+		}
+
+	case tea.MouseMsg:
+		if msg.Type == tea.MouseLeft {
+			// DEBUG: Let's see what we're getting
+			// This will help us understand if mouse events are working at all
+			clickY := msg.Y - 2
+			
+			// Force cursor to move to first item when ANY mouse click happens
+			// This is just to test if mouse events are being received
+			if len(m.filtered) > 0 {
 				m.cursor = 0
 			}
 		}
@@ -133,6 +160,38 @@ func (m model) filterShortcuts() []Shortcut {
 	return filtered
 }
 
+func (m model) highlightMatches(text string, query string, baseStyle lipgloss.Style, isSelected bool) string {
+	if query == "" {
+		if isSelected {
+			return baseStyle.Copy().Background(lipgloss.Color("#2D2D2D")).Render(text)
+		}
+		return baseStyle.Render(text)
+	}
+	
+	// Highlighting that preserves base styling and selection background
+	highlighted := ""
+	queryLower := strings.ToLower(query)
+	queryIndex := 0
+	
+	for _, char := range text {
+		charStyle := baseStyle.Copy()
+		if isSelected {
+			charStyle = charStyle.Background(lipgloss.Color("#2D2D2D"))
+		}
+		
+		if queryIndex < len(queryLower) && strings.ToLower(string(char)) == string(queryLower[queryIndex]) {
+			// This character matches the query - combine base style with match highlighting
+			matchChar := charStyle.Foreground(lipgloss.Color("#3B82F6")).Render(string(char))
+			highlighted += matchChar
+			queryIndex++
+		} else {
+			highlighted += charStyle.Render(string(char))
+		}
+	}
+	
+	return highlighted
+}
+
 func (m model) View() string {
 	if m.quitting {
 		return ""
@@ -140,20 +199,35 @@ func (m model) View() string {
 
 	var b strings.Builder
 
-	// Title
-	b.WriteString(titleStyle.Render("🚀 Shortcutter"))
-	b.WriteString("\n\n")
 
-	// Query line
-	b.WriteString("Search: ")
-	b.WriteString(queryStyle.Render(m.query))
-	if len(m.filtered) > 0 {
-		b.WriteString(fmt.Sprintf(" (%d matches)", len(m.filtered)))
+	// Query line (fzf style with >)
+	b.WriteString("> ")
+	if m.query == "" {
+		b.WriteString(queryStyle.Render(""))
+	} else {
+		b.WriteString(queryStyle.Render(m.query))
 	}
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
-	// Shortcuts list
-	maxVisible := m.height - 8 // Leave space for header, query, and help
+	// Status line (fzf style) - no parentheses since we're single-select
+	totalCount := len(m.shortcuts)
+	filteredCount := len(m.filtered)
+	status := fmt.Sprintf("  %d/%d", filteredCount, totalCount)
+	b.WriteString(statusStyle.Render(status))
+	b.WriteString(" ")
+	
+	// Separator line
+	separatorLength := m.width - len(status) - 2
+	if separatorLength > 0 {
+		b.WriteString(separatorStyle.Render(strings.Repeat("─", separatorLength)))
+	}
+	b.WriteString("\n")
+
+	// Shortcuts list - limit to fzf-like height
+	maxVisible := 10 // Similar to fzf's default height
+	if m.height > 0 && m.height < 15 {
+		maxVisible = m.height - 5 // Leave space for query and help
+	}
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -190,28 +264,40 @@ func (m model) View() string {
 			description = description[:maxDescWidth-3] + "..."
 		}
 
-		line := fmt.Sprintf("%s  %s", commandStyle.Render(command), descStyle.Render(description))
+		isSelected := i == m.cursor
 		
-		if i == m.cursor {
-			line = selectedStyle.Render(fmt.Sprintf(" %s ", line))
-		} else {
-			line = fmt.Sprintf(" %s ", line)
-		}
+		// Apply fuzzy match highlighting to ALL commands and descriptions
+		highlightedCommand := m.highlightMatches(command, m.query, commandStyle, isSelected)
+		
+		// Apply fuzzy match highlighting to descriptions too (but never with selection background)
+		highlightedDesc := m.highlightMatches(description, m.query, descStyle, false)
 
-		b.WriteString(line)
+		// Add fzf-style highlighting and block character
+		if isSelected {
+			// Selected line: orange left half block + darker gray background only for command area
+			barChar := selectedBarStyle.Render("▌")
+			spaceBg := lipgloss.NewStyle().Background(lipgloss.Color("#2D2D2D")).Render(" ")
+			line := fmt.Sprintf("%s%s%s  %s", barChar, spaceBg, highlightedCommand, highlightedDesc)
+			b.WriteString(line)
+		} else {
+			// Unselected line: gray full block + normal background
+			barChar := unselectedBarStyle.Render("█")
+			line := fmt.Sprintf("%s %s  %s", barChar, highlightedCommand, highlightedDesc)
+			b.WriteString(line)
+		}
 		b.WriteString("\n")
 	}
 
-	// Help text
+	// Help text (simplified like fzf)
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("↑/↓ or j/k: navigate • Enter: select • Esc: quit"))
+	b.WriteString(helpStyle.Render("↑/↓: navigate • Enter: select • Esc: quit"))
 
 	return b.String()
 }
 
 func ShowUI(shortcuts []Shortcut) (*Shortcut, error) {
 	m := InitialModel(shortcuts)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithMouseAllMotion()) // Enable all mouse support
 	
 	finalModel, err := p.Run()
 	if err != nil {
