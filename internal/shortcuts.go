@@ -79,17 +79,18 @@ func detectAliases() ([]Shortcut, error) {
 }
 
 func detectFunctions() ([]Shortcut, error) {
-	cmd := exec.Command("zsh", "-c", "functions | grep -v '^_'")
+	cmd := exec.Command("zsh", "-c", "functions")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		// If functions command fails, just return empty list instead of error
+		return []Shortcut{}, nil
 	}
 
 	var shortcuts []Shortcut
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "_") {
 			continue
 		}
 

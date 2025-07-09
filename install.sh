@@ -123,12 +123,11 @@ install_zsh_integration() {
     echo "" >> "$zshrc"
     echo "$integration_marker" >> "$zshrc"
     cat shortcutter.zsh >> "$zshrc"
+    echo "" >> "$zshrc"
     echo "# End shortcutter integration" >> "$zshrc"
     
     print_success "zsh integration added to .zshrc"
-    print_status "Key bindings:"
-    print_status "  Ctrl+/ - Open shortcutter"
-    print_status "  Ctrl+X Ctrl+S - Alternative binding"
+    print_status "Key binding: Ctrl+/ - Open shortcutter"
 }
 
 # Main installation function
