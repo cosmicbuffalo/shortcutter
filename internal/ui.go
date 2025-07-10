@@ -21,58 +21,25 @@ type model struct {
 	quitting     bool
 	scrollOffset int
 	maxVisible   int
+	styles       ThemeStyles
 }
 
 type tickMsg struct{}
 
-var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#10B981"))
-
-	selectedBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F97316")).
-			Background(lipgloss.Color("#2D2D2D"))
-
-	unselectedBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#2D2D2D"))
-
-	selectedLineStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#2D2D2D"))
-
-	statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
-
-	separatorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
-
-	matchStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#3B82F6"))
-
-	commandStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#10B981"))
-
-	descStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
-
-	queryStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#3B82F6"))
-
-	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#9CA3AF"))
-)
-
-func InitialModel(shortcuts []Shortcut) model {
+func InitialModel(shortcuts []Shortcut, styles ThemeStyles) model {
 	return model{
-		shortcuts:  shortcuts,
-		filtered:   shortcuts,
-		cursor:     0,
-		query:      "",
+		shortcuts:    shortcuts,
+		filtered:     shortcuts,
+		cursor:       0,
+		query:        "",
 		scrollOffset: 0,
-		maxVisible: 10,
+		maxVisible:   10,
+		styles:       styles,
 	}
+}
+
+func (m model) Shortcuts() []Shortcut {
+	return m.shortcuts
 }
 
 func (m model) Init() tea.Cmd {
@@ -102,7 +69,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up":
 			if m.cursor > 0 {
 				m.cursor--
-				if m.cursor - m.scrollOffset < 0 {
+				if m.cursor-m.scrollOffset < 0 {
 					m.scrollOffset--
 				}
 
@@ -111,7 +78,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down":
 			if m.cursor < len(m.filtered)-1 {
 				m.cursor++
-				if m.cursor - m.scrollOffset > 9 {
+				if m.cursor-m.scrollOffset > 9 {
 					m.scrollOffset++
 				}
 
@@ -125,7 +92,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		default:
-			// Handle regular character input
 			if len(msg.String()) == 1 {
 				m.query += msg.String()
 				m.filtered = m.filterShortcuts()
@@ -139,7 +105,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			item := displayLine - 2
 
 			if item >= 0 && item < 10 {
-				// If the click is on a valid line, set the cursor to that item
 				m.cursor = item + m.scrollOffset
 			}
 
@@ -147,7 +112,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.MouseWheelUp {
 			if m.cursor > 0 {
 				m.cursor--
-				if m.cursor - m.scrollOffset < 0 {
+				if m.cursor-m.scrollOffset < 0 {
 					m.scrollOffset--
 				}
 			}
@@ -155,7 +120,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.MouseWheelDown {
 			if m.cursor < len(m.filtered)-1 {
 				m.cursor++
-				if m.cursor - m.scrollOffset > m.maxVisible - 1 {
+				if m.cursor-m.scrollOffset > m.maxVisible-1 {
 					m.scrollOffset++
 				}
 			}
@@ -200,12 +165,11 @@ func (m model) highlightMatches(text string, query string, baseStyle lipgloss.St
 	for _, char := range text {
 		charStyle := baseStyle.Copy()
 		if isSelected {
-			charStyle = charStyle.Background(lipgloss.Color("#2D2D2D"))
+			charStyle = charStyle.Background(m.styles.SelectedLine.GetBackground())
 		}
 
 		if queryIndex < len(queryLower) && strings.ToLower(string(char)) == string(queryLower[queryIndex]) {
-			// This character matches the query - combine base style with match highlighting
-			matchChar := charStyle.Foreground(lipgloss.Color("#3B82F6")).Render(string(char))
+			matchChar := charStyle.Foreground(m.styles.Match.GetForeground()).Render(string(char))
 			highlighted += matchChar
 			queryIndex++
 		} else {
@@ -223,31 +187,28 @@ func (m model) View() string {
 
 	var b strings.Builder
 
-	// Query line (fzf style with >)
 	b.WriteString("> ")
 	if m.query == "" {
-		b.WriteString(queryStyle.Render(""))
+		b.WriteString(m.styles.Query.Render(""))
 	} else {
-		b.WriteString(queryStyle.Render(m.query))
+		b.WriteString(m.styles.Query.Render(m.query))
 	}
 	b.WriteString("\n")
 
-	// Status line (fzf style) - no parentheses since we're single-select
 	totalCount := len(m.shortcuts)
 	filteredCount := len(m.filtered)
 	status := fmt.Sprintf("  %d/%d", filteredCount, totalCount)
-	b.WriteString(statusStyle.Render(status))
+	b.WriteString(m.styles.Status.Render(status))
 	b.WriteString(" ")
 
-	// Separator line
 	separatorLength := m.width - len(status) - 2
 	if separatorLength > 0 {
-		b.WriteString(separatorStyle.Render(strings.Repeat("─", separatorLength)))
+		b.WriteString(m.styles.Separator.Render(strings.Repeat("─", separatorLength)))
 	}
 	b.WriteString("\n")
 
 	if m.height > 0 && m.height < 15 {
-		m.maxVisible = m.height - 5 // Leave space for query and help
+		m.maxVisible = m.height - 5
 	}
 	if m.maxVisible < 5 {
 		m.maxVisible = 5
@@ -262,10 +223,10 @@ func (m model) View() string {
 
 	for i := start; i < end; i++ {
 		shortcut := m.filtered[i]
-		// Calculate column widths
-		commandWidth := 25
+		commandWidth := 22
+		indicatorWidth := 3
 		if m.width > 80 {
-			commandWidth = 35
+			commandWidth = 30
 		}
 
 		command := shortcut.Command
@@ -276,46 +237,45 @@ func (m model) View() string {
 		}
 
 		description := shortcut.Description
-		maxDescWidth := m.width - commandWidth - 10
+		maxDescWidth := m.width - commandWidth - indicatorWidth - 12
 		if maxDescWidth > 0 && len(description) > maxDescWidth {
 			description = description[:maxDescWidth-3] + "..."
 		}
 
+		customIndicator := " "
+		if shortcut.IsCustom {
+			customIndicator = m.styles.CustomIndicator.Render("*")
+		}
+
 		isSelected := i == m.cursor
 
-		highlightedCommand := m.highlightMatches(command, m.query, commandStyle, isSelected)
-		highlightedDesc := m.highlightMatches(description, m.query, descStyle, false)
+		highlightedCommand := m.highlightMatches(command, m.query, m.styles.Command, isSelected)
+		highlightedDesc := m.highlightMatches(description, m.query, m.styles.Description, false)
 
-		// Add fzf-style highlighting and block character
 		if isSelected {
-			// Selected line: orange left half block + darker gray background only for command area
-			barChar := selectedBarStyle.Render("▌")
-			spaceBg := lipgloss.NewStyle().Background(lipgloss.Color("#2D2D2D")).Render(" ")
-			line := fmt.Sprintf("%s%s%s  %s", barChar, spaceBg, highlightedCommand, highlightedDesc)
+			barChar := m.styles.SelectedBar.Render("▌")
+			spaceBg := m.styles.SelectedLine.Render(" ")
+			line := fmt.Sprintf("%s%s%s  %s  %s", barChar, spaceBg, highlightedCommand, highlightedDesc, customIndicator)
 			b.WriteString(line)
 		} else {
-			// Unselected line: gray full block + normal background
-			barChar := unselectedBarStyle.Render("█")
-			line := fmt.Sprintf("%s %s  %s", barChar, highlightedCommand, highlightedDesc)
+			barChar := m.styles.UnselectedBar.Render("█")
+			line := fmt.Sprintf("%s %s  %s  %s", barChar, highlightedCommand, highlightedDesc, customIndicator)
 			b.WriteString(line)
 		}
 		b.WriteString("\n")
 	}
 
-	// Help text (simplified like fzf)
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("↑/↓: navigate • Enter: select • Esc: quit"))
+	b.WriteString(m.styles.Help.Render("↑/↓: navigate • Enter: select • Esc: quit"))
 
 	return b.String()
 }
 
-func ShowUI(shortcuts []Shortcut) (*Shortcut, error) {
-	m := InitialModel(shortcuts)
+func ShowUI(shortcuts []Shortcut, styles ThemeStyles) (*Shortcut, error) {
+	m := InitialModel(shortcuts, styles)
 
-	// Open TTY for input/output
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		// Fallback to stdin/stdout if TTY not available
 		p := tea.NewProgram(m, tea.WithMouseAllMotion())
 		finalModel, err := p.Run()
 		if err != nil {
