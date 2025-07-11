@@ -1,0 +1,142 @@
+       accept-line (^J ^M) (^J ^M) (^J ^M)
+              Finish editing the buffer.  Normally, this will accept the line
+              and execute it.
+
+       accept-line-and-down-history (^O) (unbound) (unbound)
+              Execute the current line, and push the next history event on the
+              editing buffer stack.
+
+       backward-char (^B) (unbound) (^B)
+              Move backward one character.
+
+       backward-delete-char (^H ^?) (unbound) (unbound)
+              Delete the character behind the cursor.
+
+       backward-kill-line (^U) (unbound) (unbound)
+              Kill from the beginning of the line to the cursor position.
+
+       backward-kill-word (^[^H ^[^?) (unbound) (unbound)
+              Kill the word behind the cursor.
+
+       backward-word (^[B ^[b) (B) (^[B ^[b)
+              Move to the beginning of the previous word.
+
+       beginning-of-line (^A) (unbound) (unbound)
+              Move to the beginning of the line.  If already at the beginning
+              of the line, move to the beginning of the previous line, if any.
+
+       capitalize-word (^[C ^[c) (unbound) (unbound)
+              Capitalize the current word and move past it.
+
+       clear-screen (^L) (unbound) (unbound)
+              Clear the screen leaving the current line at the top of the
+              screen.  On terminals without termcap, the terminal is cleared.
+
+       copy-region-as-kill (^[W ^[w) (unbound) (unbound)
+              Copy the area from the cursor to the mark to the kill buffer.
+
+       delete-char (unbound) (x) (unbound)
+              Delete the character under the cursor.
+
+       delete-char-or-list (^D) (unbound) (unbound)
+              Delete the character under the cursor, or, if the cursor is at
+              the end of the line, list possible completions for the current
+              word.
+
+       down-case-word (^[L ^[l) (unbound) (unbound)
+              Convert the current word to lowercase and move past it.
+
+       down-line-or-history (^N) (j) (^N)
+              Move down a line in the buffer, or if already at the bottom
+              line, move to the next event in the history list.
+
+       edit-command-line (^X^E) (unbound) (unbound)
+              Invoke an editor on the current command line.
+
+       end-of-line (^E) (unbound) (unbound)
+              Move to the end of the line.  If already at the end of the line,
+              move to the end of the next line, if any.
+
+       expand-or-complete (^I) (unbound) (^I)
+              Attempt shell expansion on the current word.
+
+       forward-char (^F) (unbound) (^F)
+              Move forward one character.
+
+       forward-word (^[F ^[f) (W) (^[F ^[f)
+              Move to the beginning of the next word.
+
+       get-line (^[G ^[g) (unbound) (unbound)
+              Pop the top line off the buffer stack and insert it at the cur‐
+              sor position.
+
+       history-incremental-search-backward (^R) (unbound) (unbound)
+              Search backward incrementally for a specified string.
+
+       history-search-backward (^[P ^[p) (unbound) (unbound)
+              Search backward in the history for a line beginning with the
+              first word in the buffer.
+
+       history-search-forward (^[N ^[n) (unbound) (unbound)
+              Search forward in the history for a line beginning with the
+              first word in the buffer.
+
+       insert-last-word (^[. ^[_) (unbound) (unbound)
+              Insert the last word from the previous history event at the cur‐
+              sor position.
+
+       kill-line (^K) (unbound) (unbound)
+              Kill from the cursor to the end of the line.
+
+       kill-word (^[D ^[d) (unbound) (unbound)
+              Kill from the cursor to the end of the current word, or, if
+              between words, to the end of the next word.
+
+       push-line (^Q ^[Q ^[q) (unbound) (unbound)
+              Push the contents of the buffer on the buffer stack and clear
+              the buffer.
+
+       quoted-insert (^V) (unbound) (^V)
+              Insert the next character typed literally into the command line.
+
+       run-help (^[H ^[h) (unbound) (unbound)
+              Push the buffer onto the buffer stack, and execute the command
+              "run-help cmd", where cmd is the current command.
+
+       self-insert
+              Insert a character into the buffer at the cursor position.
+
+       send-break (^G ^[^G) (unbound) (unbound)
+              Abort the current editor function, e.g., incremental-search-
+              backward.
+
+       set-mark-command (^@ ^[ ) (unbound) (unbound)
+              Set the mark at the cursor position.
+
+       spell-word (^[S ^[s) (unbound) (unbound)
+              Attempt spelling correction on the current word.
+
+       transpose-chars (^T) (unbound) (unbound)
+              Exchange the two characters to the left of the cursor, or, if
+              the cursor is at the end of the line, the two characters to the
+              left of the cursor.
+
+       transpose-words (^[T ^[t) (unbound) (unbound)
+              Exchange the current word with the one before it.
+
+       undo (^_ ^Xu ^[z) (u) (unbound)
+              Incrementally undo the last text modification.
+
+       up-case-word (^[U ^[u) (unbound) (unbound)
+              Convert the current word to uppercase and move past it.
+
+       up-line-or-history (^P) (k -) (^P)
+              Move up a line in the buffer, or if already at the top line,
+              move to the previous event in the history list.
+
+       yank (^Y) (unbound) (unbound)
+              Insert the contents of the kill buffer at the cursor position.
+
+       yank-pop (^[Y ^[y) (unbound) (unbound)
+              Remove the text just yanked, rotate the kill-ring, and yank the
+              new top.

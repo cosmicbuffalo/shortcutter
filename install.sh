@@ -73,6 +73,41 @@ build_binary() {
     print_success "Binary built successfully"
 }
 
+# Clear cache to force regeneration with new version
+clear_cache() {
+    print_status "Clearing shortcutter cache..."
+    
+    # Check multiple possible cache locations to be thorough
+    local cache_locations=(
+        "$HOME/.config/shortcutter/cache"
+        "$HOME/.cache/shortcutter"
+    )
+    
+    if [[ -n "$XDG_CACHE_HOME" ]]; then
+        cache_locations+=("$XDG_CACHE_HOME/shortcutter")
+    fi
+    
+    local cleared=false
+    for cache_dir in "${cache_locations[@]}"; do
+        if [[ -d "$cache_dir" ]]; then
+            print_status "Clearing cache at: $cache_dir"
+            rm -rf "$cache_dir"
+            cleared=true
+        fi
+    done
+    
+    if [[ "$cleared" == "true" ]]; then
+        print_success "Cache cleared successfully"
+    else
+        print_status "No existing cache found"
+    fi
+    
+    # Create the proper cache directory structure
+    local cache_dir="$HOME/.config/shortcutter/cache"
+    mkdir -p "$cache_dir"
+    print_status "Cache directory created: $cache_dir"
+}
+
 # Install binary to user's local bin
 install_binary() {
     local bin_dir="$HOME/.local/bin"
@@ -141,6 +176,7 @@ main() {
     
     # Build and install
     build_binary
+    clear_cache
     install_binary
     install_zsh_integration
     
