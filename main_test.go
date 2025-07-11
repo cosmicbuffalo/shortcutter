@@ -16,17 +16,17 @@ func TestDetectShortcuts(t *testing.T) {
 	}
 
 	for i, shortcut := range shortcuts {
-		if shortcut.Command == "" {
-			t.Errorf("Shortcut %d has empty Command", i)
+		if shortcut.Display == "" {
+			t.Errorf("Shortcut %d has empty Display", i)
 		}
 		if shortcut.Description == "" {
-			t.Errorf("Shortcut %d (%s) has empty Description", i, shortcut.Command)
+			t.Errorf("Shortcut %d (%s) has empty Description", i, shortcut.Display)
 		}
 		if shortcut.Type == "" {
-			t.Errorf("Shortcut %d (%s) has empty Type", i, shortcut.Command)
+			t.Errorf("Shortcut %d (%s) has empty Type", i, shortcut.Display)
 		}
-		if shortcut.Action == "" {
-			t.Errorf("Shortcut %d (%s) has empty Action", i, shortcut.Command)
+		if shortcut.Target == "" {
+			t.Errorf("Shortcut %d (%s) has empty Target", i, shortcut.Display)
 		}
 	}
 }

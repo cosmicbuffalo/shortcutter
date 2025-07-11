@@ -19,6 +19,7 @@ type model struct {
 	width        int
 	height       int
 	selected     *Shortcut
+	selectedKey  string // "enter" or "tab"
 	quitting     bool
 	scrollOffset int
 	maxVisible   int
@@ -63,6 +64,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				m.selected = &m.filtered[m.cursor]
+				m.selectedKey = "enter"
+				m.quitting = true
+				return m, tea.Quit
+			}
+
+		case "tab":
+			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+				m.selected = &m.filtered[m.cursor]
+				m.selectedKey = "tab"
 				m.quitting = true
 				return m, tea.Quit
 			}
@@ -144,7 +154,7 @@ func (m model) filterShortcuts() []Shortcut {
 
 	targets := make([]string, len(m.shortcuts))
 	for i, shortcut := range m.shortcuts {
-		targets[i] = shortcut.Command + " " + shortcut.Description
+		targets[i] = shortcut.Display + " " + shortcut.Description
 	}
 
 	matches := fuzzy.Find(m.query, targets)
@@ -246,7 +256,7 @@ func (m model) View() string {
 			commandWidth = 30
 		}
 
-		command := shortcut.Command
+		command := shortcut.Display
 		if len(command) > commandWidth {
 			command = command[:commandWidth-3] + "..."
 		} else {
@@ -286,7 +296,7 @@ func (m model) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(m.styles.Help.Render("↑/↓: navigate • Enter: select • Esc: quit"))
+	b.WriteString(m.styles.Help.Render("↑/↓: navigate • Enter: execute • Tab: populate • Esc: quit"))
 
 	a.WriteString(m.styles.AppBackground.Render(b.String()))
 	return a.String()
@@ -294,7 +304,7 @@ func (m model) View() string {
 	// return m.styles.AppBackground.Render(content)
 }
 
-func ShowUI(shortcuts []Shortcut, styles ThemeStyles) (*Shortcut, error) {
+func ShowUI(shortcuts []Shortcut, styles ThemeStyles) (*Shortcut, string, error) {
 	// Force true color support
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	
@@ -305,13 +315,13 @@ func ShowUI(shortcuts []Shortcut, styles ThemeStyles) (*Shortcut, error) {
 		p := tea.NewProgram(m, tea.WithMouseAllMotion())
 		finalModel, err := p.Run()
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
 		if finalModel, ok := finalModel.(model); ok {
-			return finalModel.selected, nil
+			return finalModel.selected, finalModel.selectedKey, nil
 		}
-		return nil, nil
+		return nil, "", nil
 	}
 	defer tty.Close()
 
@@ -319,12 +329,12 @@ func ShowUI(shortcuts []Shortcut, styles ThemeStyles) (*Shortcut, error) {
 
 	finalModel, err := p.Run()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if finalModel, ok := finalModel.(model); ok {
-		return finalModel.selected, nil
+		return finalModel.selected, finalModel.selectedKey, nil
 	}
 
-	return nil, nil
+	return nil, "", nil
 }

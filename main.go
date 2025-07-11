@@ -13,13 +13,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	selected, err := internal.ShowUI(shortcuts, styles)
+	selected, selectedKey, err := internal.ShowUI(shortcuts, styles)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error showing UI: %v\n", err)
 		os.Exit(1)
 	}
 
 	if selected != nil {
-		fmt.Printf("%s:%s\n", selected.Action, selected.Command)
+		fmt.Printf("%s:%s:%s\n", selectedKey, selected.Type, selected.Target)
 	}
 }

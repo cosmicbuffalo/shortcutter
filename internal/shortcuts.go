@@ -12,10 +12,10 @@ import (
 )
 
 type Shortcut struct {
-	Command     string
-	Description string
-	Action      string // What to do: "execute" or "populate" or "info"
-	Type        string // "keybinding"
+	Display     string // What to show in UI (e.g., "Ctrl+A", "gs")
+	Description string // Human-readable description
+	Type        string // "widget", "command", or "sequence"
+	Target      string // What to execute (widget name, command, or key sequence)
 	IsCustom    bool   // True if added/modified by user config
 }
 
@@ -108,44 +108,44 @@ func getBuiltinShortcuts(shell string) ([]Shortcut, error) {
 
 func getZshBuiltinShortcuts() []Shortcut {
 	return []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of the line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+E", Description: "End of the line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+F", Description: "Forward one character", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+B", Description: "Back one character", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+F", Description: "Forward one word", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+B", Description: "Back one word", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+T", Description: "Swap cursor with prev character", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+T", Description: "Swap cursor with prev word", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+U", Description: "Clear to beginning of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+K", Description: "Kill to end of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+H", Description: "Kill one character backward", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+W", Description: "Kill word back (if no Mark)", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+@", Description: "Set Mark", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+Y", Description: "Paste from Kill Ring", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+V", Description: "Quoted insert", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+Q", Description: "Push line to be used again", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+_", Description: "Undo", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+P", Description: "Prev line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+N", Description: "Next Line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+R", Description: "Search", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+P", Description: "Match word on line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+.", Description: "Extract last word", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+L", Description: "Clear screen", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+S", Description: "Stop screen output", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+C", Description: "Kill proc", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+Z", Description: "Suspend proc", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+O", Description: "Exec cmd but keep line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Tab", Description: "Complete command/filename", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Enter", Description: "Execute command", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+D", Description: "Delete character or EOF", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+G", Description: "Abort current operation", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+X Ctrl+E", Description: "Edit command in editor", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "↑", Description: "Previous command in history", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "↓", Description: "Next command in history", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "←", Description: "Move cursor left", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "→", Description: "Move cursor right", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Home", Description: "Beginning of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "End", Description: "End of line", Action: "info", Type: "keybinding", IsCustom: false},
+		{Display: "Ctrl+A", Description: "Beginning of the line", Type: "widget", Target: "beginning-of-line", IsCustom: false},
+		{Display: "Ctrl+E", Description: "End of the line", Type: "widget", Target: "end-of-line", IsCustom: false},
+		{Display: "Ctrl+F", Description: "Forward one character", Type: "widget", Target: "forward-char", IsCustom: false},
+		{Display: "Ctrl+B", Description: "Back one character", Type: "widget", Target: "backward-char", IsCustom: false},
+		{Display: "Alt+F", Description: "Forward one word", Type: "widget", Target: "forward-word", IsCustom: false},
+		{Display: "Alt+B", Description: "Back one word", Type: "widget", Target: "backward-word", IsCustom: false},
+		{Display: "Ctrl+T", Description: "Swap cursor with prev character", Type: "widget", Target: "transpose-chars", IsCustom: false},
+		{Display: "Alt+T", Description: "Swap cursor with prev word", Type: "widget", Target: "transpose-words", IsCustom: false},
+		{Display: "Ctrl+U", Description: "Clear to beginning of line", Type: "widget", Target: "backward-kill-line", IsCustom: false},
+		{Display: "Ctrl+K", Description: "Kill to end of line", Type: "widget", Target: "kill-line", IsCustom: false},
+		{Display: "Ctrl+H", Description: "Kill one character backward", Type: "widget", Target: "backward-delete-char", IsCustom: false},
+		{Display: "Ctrl+W", Description: "Kill word back (if no Mark)", Type: "widget", Target: "backward-kill-word", IsCustom: false},
+		{Display: "Ctrl+@", Description: "Set Mark", Type: "widget", Target: "set-mark-command", IsCustom: false},
+		{Display: "Ctrl+Y", Description: "Paste from Kill Ring", Type: "widget", Target: "yank", IsCustom: false},
+		{Display: "Ctrl+V", Description: "Quoted insert", Type: "widget", Target: "quoted-insert", IsCustom: false},
+		{Display: "Ctrl+Q", Description: "Push line to be used again", Type: "widget", Target: "push-line", IsCustom: false},
+		{Display: "Ctrl+_", Description: "Undo", Type: "widget", Target: "undo", IsCustom: false},
+		{Display: "Ctrl+P", Description: "Prev line", Type: "widget", Target: "up-line-or-history", IsCustom: false},
+		{Display: "Ctrl+N", Description: "Next Line", Type: "widget", Target: "down-line-or-history", IsCustom: false},
+		{Display: "Ctrl+R", Description: "Search", Type: "widget", Target: "history-incremental-search-backward", IsCustom: false},
+		{Display: "Alt+P", Description: "Match word on line", Type: "widget", Target: "history-search-backward", IsCustom: false},
+		{Display: "Alt+.", Description: "Extract last word", Type: "widget", Target: "insert-last-word", IsCustom: false},
+		{Display: "Ctrl+L", Description: "Clear screen", Type: "widget", Target: "clear-screen", IsCustom: false},
+		{Display: "Ctrl+S", Description: "Stop screen output", Type: "sequence", Target: "C-s", IsCustom: false},
+		{Display: "Ctrl+C", Description: "Kill proc", Type: "sequence", Target: "C-c", IsCustom: false},
+		{Display: "Ctrl+Z", Description: "Suspend proc", Type: "sequence", Target: "C-z", IsCustom: false},
+		{Display: "Ctrl+O", Description: "Exec cmd but keep line", Type: "widget", Target: "accept-line-and-down-history", IsCustom: false},
+		{Display: "Tab", Description: "Complete command/filename", Type: "widget", Target: "expand-or-complete", IsCustom: false},
+		{Display: "Enter", Description: "Execute command", Type: "widget", Target: "accept-line", IsCustom: false},
+		{Display: "Ctrl+D", Description: "Delete character or EOF", Type: "widget", Target: "delete-char-or-list", IsCustom: false},
+		{Display: "Ctrl+G", Description: "Abort current operation", Type: "widget", Target: "send-break", IsCustom: false},
+		{Display: "Ctrl+X Ctrl+E", Description: "Edit command in editor", Type: "widget", Target: "edit-command-line", IsCustom: false},
+		{Display: "↑", Description: "Previous command in history", Type: "widget", Target: "up-line-or-history", IsCustom: false},
+		{Display: "↓", Description: "Next command in history", Type: "widget", Target: "down-line-or-history", IsCustom: false},
+		{Display: "←", Description: "Move cursor left", Type: "widget", Target: "backward-char", IsCustom: false},
+		{Display: "→", Description: "Move cursor right", Type: "widget", Target: "forward-char", IsCustom: false},
+		{Display: "Home", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line", IsCustom: false},
+		{Display: "End", Description: "End of line", Type: "widget", Target: "end-of-line", IsCustom: false},
 	}
 }
 
@@ -227,8 +227,10 @@ func loadConfig() (*Config, error) {
 
 func mergeShortcuts(builtins []Shortcut, config *Config) []Shortcut {
 	shortcutMap := make(map[string]Shortcut)
+	
+	// Index built-ins by their display name
 	for _, shortcut := range builtins {
-		normalizedKey := normalizeKey(shortcut.Command)
+		normalizedKey := normalizeKey(shortcut.Display)
 		shortcutMap[normalizedKey] = shortcut
 	}
 
@@ -237,20 +239,58 @@ func mergeShortcuts(builtins []Shortcut, config *Config) []Shortcut {
 
 		switch v := configValue.(type) {
 		case bool:
+			// Disable shortcut
 			if !v {
 				delete(shortcutMap, normalizedKey)
 			}
 		case string:
+			// Simple override - just change description, inherit everything else from built-in
 			if v != "" {
-				shortcut := Shortcut{
-					Command:     normalizedKey,
-					Description: v,
-					Action:      "info",
-					Type:        "keybinding",
-					IsCustom:    true,
+				if existing, exists := shortcutMap[normalizedKey]; exists {
+					// Override description but keep other fields
+					existing.Description = v
+					existing.IsCustom = true
+					shortcutMap[normalizedKey] = existing
+				} else {
+					// New shortcut with just description - assume it's a command
+					shortcut := Shortcut{
+						Display:     normalizedKey,
+						Description: v,
+						Type:        "command",
+						Target:      v, // Use description as command for simple cases
+						IsCustom:    true,
+					}
+					shortcutMap[normalizedKey] = shortcut
 				}
-				shortcutMap[normalizedKey] = shortcut
 			}
+		case map[string]interface{}:
+			// Full object configuration
+			shortcut := Shortcut{
+				Display:  normalizedKey,
+				IsCustom: true,
+			}
+			
+			// Start with existing built-in if it exists
+			if existing, exists := shortcutMap[normalizedKey]; exists {
+				shortcut = existing
+				shortcut.IsCustom = true
+			}
+			
+			// Override with config values
+			if display, ok := v["display"].(string); ok {
+				shortcut.Display = display
+			}
+			if description, ok := v["description"].(string); ok {
+				shortcut.Description = description
+			}
+			if shortcutType, ok := v["type"].(string); ok {
+				shortcut.Type = shortcutType
+			}
+			if target, ok := v["target"].(string); ok {
+				shortcut.Target = target
+			}
+			
+			shortcutMap[normalizedKey] = shortcut
 		}
 	}
 
@@ -260,7 +300,7 @@ func mergeShortcuts(builtins []Shortcut, config *Config) []Shortcut {
 	}
 
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Command < result[j].Command
+		return result[i].Display < result[j].Display
 	})
 
 	return result

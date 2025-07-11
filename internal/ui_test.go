@@ -15,9 +15,9 @@ func createTestModel(shortcuts []Shortcut) model {
 
 func TestInitialModel(t *testing.T) {
 	shortcuts := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+E", Description: "End of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+F", Description: "Forward word", Action: "info", Type: "keybinding", IsCustom: true},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line", IsCustom: false},
+		{Display: "Ctrl+E", Description: "End of line", Type: "widget", Target: "end-of-line", IsCustom: false},
+		{Display: "Alt+F", Description: "Forward word", Type: "widget", Target: "forward-word", IsCustom: true},
 	}
 
 	model := createTestModel(shortcuts)
@@ -53,10 +53,10 @@ func TestInitialModel(t *testing.T) {
 
 func TestFilterShortcuts(t *testing.T) {
 	shortcuts := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding"},
-		{Command: "Ctrl+E", Description: "End of line", Action: "info", Type: "keybinding"},
-		{Command: "Alt+F", Description: "Forward word", Action: "info", Type: "keybinding"},
-		{Command: "Tab", Description: "Complete command", Action: "info", Type: "keybinding"},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line"},
+		{Display: "Ctrl+E", Description: "End of line", Type: "widget", Target: "end-of-line"},
+		{Display: "Alt+F", Description: "Forward word", Type: "widget", Target: "forward-word"},
+		{Display: "Tab", Description: "Complete command", Type: "widget", Target: "expand-or-complete"},
 	}
 
 	model := createTestModel(shortcuts)
@@ -75,7 +75,7 @@ func TestFilterShortcuts(t *testing.T) {
 
 	foundMatch := false
 	for _, shortcut := range filtered {
-		if shortcut.Command == "Ctrl+A" || shortcut.Command == "Ctrl+E" {
+		if shortcut.Display == "Ctrl+A" || shortcut.Display == "Ctrl+E" {
 			foundMatch = true
 			break
 		}
@@ -88,7 +88,7 @@ func TestFilterShortcuts(t *testing.T) {
 	filtered = model.filterShortcuts()
 	foundMatch = false
 	for _, shortcut := range filtered {
-		if shortcut.Command == "Alt+F" {
+		if shortcut.Display == "Alt+F" {
 			foundMatch = true
 			break
 		}
@@ -106,22 +106,22 @@ func TestFilterShortcuts(t *testing.T) {
 
 func TestHighlightMatches(t *testing.T) {
 	shortcuts := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding"},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line"},
 	}
 
 	model := createTestModel(shortcuts)
 
-	result := model.highlightMatches("Ctrl+A", "", model.styles.Command, false)
+	result := model.highlightMatches("Ctrl+A", "", model.styles.Command, false, model.styles)
 	if result == "" {
 		t.Error("highlightMatches should not return empty string")
 	}
 
-	result = model.highlightMatches("Ctrl+A", "Ctrl", model.styles.Command, false)
+	result = model.highlightMatches("Ctrl+A", "Ctrl", model.styles.Command, false, model.styles)
 	if result == "" {
 		t.Error("highlightMatches should not return empty string")
 	}
 
-	result = model.highlightMatches("Ctrl+A", "Ctrl", model.styles.Command, true)
+	result = model.highlightMatches("Ctrl+A", "Ctrl", model.styles.Command, true, model.styles)
 	if result == "" {
 		t.Error("highlightMatches should not return empty string")
 	}
@@ -129,8 +129,8 @@ func TestHighlightMatches(t *testing.T) {
 
 func TestModelView(t *testing.T) {
 	shortcuts := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+E", Description: "End of line", Action: "info", Type: "keybinding", IsCustom: true},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line", IsCustom: false},
+		{Display: "Ctrl+E", Description: "End of line", Type: "widget", Target: "end-of-line", IsCustom: true},
 	}
 
 	model := createTestModel(shortcuts)
@@ -142,8 +142,8 @@ func TestModelView(t *testing.T) {
 		t.Error("View should not return empty string")
 	}
 
-	if !strings.Contains(view, ">") {
-		t.Error("View should contain query prompt '>'")
+	if !strings.Contains(view, "❯") {
+		t.Error("View should contain query prompt '❯'")
 	}
 
 	if !strings.Contains(view, "Ctrl+A") {
@@ -174,7 +174,7 @@ func TestModelView(t *testing.T) {
 
 func TestModelInit(t *testing.T) {
 	shortcuts := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding"},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line"},
 	}
 
 	model := createTestModel(shortcuts)
@@ -186,9 +186,9 @@ func TestModelInit(t *testing.T) {
 
 func TestModelUpdate(t *testing.T) {
 	shortcuts := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding"},
-		{Command: "Ctrl+E", Description: "End of line", Action: "info", Type: "keybinding"},
-		{Command: "Alt+F", Description: "Forward word", Action: "info", Type: "keybinding"},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line"},
+		{Display: "Ctrl+E", Description: "End of line", Type: "widget", Target: "end-of-line"},
+		{Display: "Alt+F", Description: "Forward word", Type: "widget", Target: "forward-word"},
 	}
 
 	model := createTestModel(shortcuts)

@@ -118,17 +118,20 @@ func TestGetBuiltinShortcuts(t *testing.T) {
 
 	for _, shortcut := range shortcuts {
 		if shortcut.IsCustom {
-			t.Errorf("Built-in shortcut %q should not be marked as custom", shortcut.Command)
+			t.Errorf("Built-in shortcut %q should not be marked as custom", shortcut.Display)
 		}
-		if shortcut.Type != "keybinding" {
-			t.Errorf("Built-in shortcut %q should have type 'keybinding', got %q", shortcut.Command, shortcut.Type)
+		if shortcut.Type != "widget" && shortcut.Type != "sequence" {
+			t.Errorf("Built-in shortcut %q should have type 'widget' or 'sequence', got %q", shortcut.Display, shortcut.Type)
+		}
+		if shortcut.Target == "" {
+			t.Errorf("Built-in shortcut %q should have a target", shortcut.Display)
 		}
 	}
 
 	expectedShortcuts := []string{"Ctrl+A", "Ctrl+E", "Alt+F", "Alt+B", "Ctrl+R"}
 	shortcutMap := make(map[string]bool)
 	for _, shortcut := range shortcuts {
-		shortcutMap[shortcut.Command] = true
+		shortcutMap[shortcut.Display] = true
 	}
 
 	for _, expected := range expectedShortcuts {
@@ -145,9 +148,9 @@ func TestGetBuiltinShortcuts(t *testing.T) {
 
 func TestMergeShortcuts(t *testing.T) {
 	builtins := []Shortcut{
-		{Command: "Ctrl+A", Description: "Beginning of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Ctrl+E", Description: "End of line", Action: "info", Type: "keybinding", IsCustom: false},
-		{Command: "Alt+F", Description: "Forward word", Action: "info", Type: "keybinding", IsCustom: false},
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line", IsCustom: false},
+		{Display: "Ctrl+E", Description: "End of line", Type: "widget", Target: "end-of-line", IsCustom: false},
+		{Display: "Alt+F", Description: "Forward word", Type: "widget", Target: "forward-word", IsCustom: false},
 	}
 
 	emptyConfig := &Config{Shortcuts: make(map[string]interface{})}
@@ -167,7 +170,7 @@ func TestMergeShortcuts(t *testing.T) {
 	}
 
 	for _, shortcut := range result {
-		if shortcut.Command == "Ctrl+A" {
+		if shortcut.Display == "Ctrl+A" {
 			t.Error("Ctrl+A should have been removed")
 		}
 	}
@@ -184,7 +187,7 @@ func TestMergeShortcuts(t *testing.T) {
 
 	foundCustom := false
 	for _, shortcut := range result {
-		if shortcut.Command == "Ctrl+E" {
+		if shortcut.Display == "Ctrl+E" {
 			if shortcut.Description != "Custom end of line" {
 				t.Errorf("Ctrl+E description: got %q, want %q", shortcut.Description, "Custom end of line")
 			}
@@ -219,13 +222,13 @@ func TestMergeShortcuts(t *testing.T) {
 	ctrlAFound := false
 	ctrlEFound := false
 	for _, shortcut := range result {
-		if shortcut.Command == "Ctrl+A" {
+		if shortcut.Display == "Ctrl+A" {
 			ctrlAFound = true
 			if shortcut.Description != "Normalized override" {
 				t.Errorf("Normalized Ctrl+A: got %q, want %q", shortcut.Description, "Normalized override")
 			}
 		}
-		if shortcut.Command == "Ctrl+E" {
+		if shortcut.Display == "Ctrl+E" {
 			ctrlEFound = true
 		}
 	}
@@ -296,6 +299,79 @@ func TestLoadConfig(t *testing.T) {
 
 	if config.Shortcuts == nil {
 		t.Error("loadConfig() returned config with nil Shortcuts map")
+	}
+}
+
+func TestMergeShortcutsWithObjectConfig(t *testing.T) {
+	builtins := []Shortcut{
+		{Display: "Ctrl+A", Description: "Beginning of line", Type: "widget", Target: "beginning-of-line", IsCustom: false},
+	}
+
+	// Test full object configuration
+	objectConfig := &Config{
+		Shortcuts: map[string]interface{}{
+			"git-status": map[string]interface{}{
+				"display":     "gs",
+				"description": "Git status",
+				"type":        "command",
+				"target":      "git status",
+			},
+		},
+	}
+	result := mergeShortcuts(builtins, objectConfig)
+	
+	foundCustom := false
+	for _, shortcut := range result {
+		if shortcut.Display == "gs" {
+			foundCustom = true
+			if shortcut.Description != "Git status" {
+				t.Errorf("Object config description: got %q, want %q", shortcut.Description, "Git status")
+			}
+			if shortcut.Type != "command" {
+				t.Errorf("Object config type: got %q, want %q", shortcut.Type, "command")
+			}
+			if shortcut.Target != "git status" {
+				t.Errorf("Object config target: got %q, want %q", shortcut.Target, "git status")
+			}
+			if !shortcut.IsCustom {
+				t.Error("Object config shortcut should be marked as custom")
+			}
+		}
+	}
+	if !foundCustom {
+		t.Error("Object config shortcut not found")
+	}
+
+	// Test partial override of built-in
+	partialConfig := &Config{
+		Shortcuts: map[string]interface{}{
+			"Ctrl+A": map[string]interface{}{
+				"description": "Start of line",
+			},
+		},
+	}
+	result = mergeShortcuts(builtins, partialConfig)
+	
+	foundPartial := false
+	for _, shortcut := range result {
+		if shortcut.Display == "Ctrl+A" {
+			foundPartial = true
+			if shortcut.Description != "Start of line" {
+				t.Errorf("Partial override description: got %q, want %q", shortcut.Description, "Start of line")
+			}
+			if shortcut.Type != "widget" {
+				t.Errorf("Partial override should inherit type: got %q, want %q", shortcut.Type, "widget")
+			}
+			if shortcut.Target != "beginning-of-line" {
+				t.Errorf("Partial override should inherit target: got %q, want %q", shortcut.Target, "beginning-of-line")
+			}
+			if !shortcut.IsCustom {
+				t.Error("Partial override should be marked as custom")
+			}
+		}
+	}
+	if !foundPartial {
+		t.Error("Partial override shortcut not found")
 	}
 }
 
