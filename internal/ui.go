@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -96,6 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.query += msg.String()
 				m.filtered = m.filterShortcuts()
 				m.cursor = 0
+				m.scrollOffset = 0
 			}
 		}
 
@@ -150,17 +152,20 @@ func (m model) filterShortcuts() []Shortcut {
 	return filtered
 }
 
-func (m model) highlightMatches(text string, query string, baseStyle lipgloss.Style, isSelected bool) string {
+func (m model) highlightMatches(text string, query string, baseStyle lipgloss.Style, isSelected bool, styles ThemeStyles) string {
 	if query == "" {
 		if isSelected {
-			return baseStyle.Copy().Background(lipgloss.Color("#2D2D2D")).Render(text)
+			return baseStyle.Copy().Background(styles.SelectedBar.GetBackground()).Render(text)
 		}
 		return baseStyle.Render(text)
 	}
 
 	highlighted := ""
+	unhighlighted := ""
 	queryLower := strings.ToLower(query)
 	queryIndex := 0
+	maxMatchLength := 0
+	currentMatchLength := 0
 
 	for _, char := range text {
 		charStyle := baseStyle.Copy()
@@ -172,12 +177,23 @@ func (m model) highlightMatches(text string, query string, baseStyle lipgloss.St
 			matchChar := charStyle.Foreground(m.styles.Match.GetForeground()).Render(string(char))
 			highlighted += matchChar
 			queryIndex++
+			currentMatchLength++
+			if currentMatchLength > maxMatchLength {
+				maxMatchLength = currentMatchLength
+			}
 		} else {
+			currentMatchLength = 0
 			highlighted += charStyle.Render(string(char))
 		}
+		unhighlighted += charStyle.Render(string(char))
 	}
 
-	return highlighted
+	matchDiff := len(query) - maxMatchLength
+	if matchDiff < 2 {
+		return highlighted
+	}
+
+	return unhighlighted
 }
 
 func (m model) View() string {
@@ -185,21 +201,17 @@ func (m model) View() string {
 		return ""
 	}
 
+	var a strings.Builder
 	var b strings.Builder
 
-	b.WriteString("> ")
-	if m.query == "" {
-		b.WriteString(m.styles.Query.Render(""))
-	} else {
-		b.WriteString(m.styles.Query.Render(m.query))
-	}
-	b.WriteString("\n")
+	a.WriteString(m.styles.Query.Render("❯ "))
+	a.WriteString(m.styles.Query.Render(m.query))
+	a.WriteString("\n")
 
 	totalCount := len(m.shortcuts)
 	filteredCount := len(m.filtered)
-	status := fmt.Sprintf("  %d/%d", filteredCount, totalCount)
+	status := fmt.Sprintf("  %d/%d ", filteredCount, totalCount)
 	b.WriteString(m.styles.Status.Render(status))
-	b.WriteString(" ")
 
 	separatorLength := m.width - len(status) - 2
 	if separatorLength > 0 {
@@ -242,24 +254,27 @@ func (m model) View() string {
 			description = description[:maxDescWidth-3] + "..."
 		}
 
-		customIndicator := " "
+		customIndicator := m.styles.AppBackground.Render(" ")
 		if shortcut.IsCustom {
 			customIndicator = m.styles.CustomIndicator.Render("*")
 		}
 
 		isSelected := i == m.cursor
 
-		highlightedCommand := m.highlightMatches(command, m.query, m.styles.Command, isSelected)
-		highlightedDesc := m.highlightMatches(description, m.query, m.styles.Description, false)
+		highlightedCommand := m.highlightMatches(command, m.query, m.styles.Command, isSelected, m.styles)
+		highlightedDesc := m.highlightMatches(description, m.query, m.styles.Description, false, m.styles)
 
 		if isSelected {
 			barChar := m.styles.SelectedBar.Render("▌")
 			spaceBg := m.styles.SelectedLine.Render(" ")
-			line := fmt.Sprintf("%s%s%s  %s  %s", barChar, spaceBg, highlightedCommand, highlightedDesc, customIndicator)
-			b.WriteString(line)
+			columnBg := m.styles.AppBackground.Render("  ")
+			line := fmt.Sprintf("%s%s%s%s%s%s", barChar, spaceBg, highlightedCommand, columnBg, highlightedDesc, customIndicator)
+			b.WriteString(m.styles.AppBackground.Render(line))
 		} else {
 			barChar := m.styles.UnselectedBar.Render("█")
-			line := fmt.Sprintf("%s %s  %s  %s", barChar, highlightedCommand, highlightedDesc, customIndicator)
+			spaceBg := m.styles.AppBackground.Render(" ")
+			columnBg := m.styles.AppBackground.Render("  ")
+			line := fmt.Sprintf("%s%s%s%s%s%s", barChar, spaceBg, highlightedCommand, columnBg, highlightedDesc, customIndicator)
 			b.WriteString(line)
 		}
 		b.WriteString("\n")
@@ -268,10 +283,16 @@ func (m model) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.styles.Help.Render("↑/↓: navigate • Enter: select • Esc: quit"))
 
-	return b.String()
+	a.WriteString(m.styles.AppBackground.Render(b.String()))
+	return a.String()
+	// return content
+	// return m.styles.AppBackground.Render(content)
 }
 
 func ShowUI(shortcuts []Shortcut, styles ThemeStyles) (*Shortcut, error) {
+	// Force true color support
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	
 	m := InitialModel(shortcuts, styles)
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)

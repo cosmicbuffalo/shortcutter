@@ -13,6 +13,7 @@ type Theme struct {
 	Name            string `toml:"name"`
 	Primary         string `toml:"primary"`
 	Secondary       string `toml:"secondary"`
+	Query           string `toml:"query"`
 	Accent          string `toml:"accent"`
 	SelectedBg      string `toml:"selected_bg"`
 	AppBg           string `toml:"app_bg"`
@@ -43,8 +44,9 @@ func GetDefaultTheme() Theme {
 		Name:            "default",
 		Primary:         "#10B981",
 		Secondary:       "#3B82F6",
+		Query:           "#FFFFFF",
 		Accent:          "#F97316",
-		SelectedBg:      "#2D2D2D",
+		SelectedBg:      "#3F3F3F",
 		AppBg:           "transparent",
 		Muted:           "#6B7280",
 		Help:            "#9CA3AF",
@@ -119,43 +121,53 @@ func CreateThemeStyles(theme Theme) ThemeStyles {
 	styles := ThemeStyles{
 		Title: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(theme.Primary)),
+			Foreground(lipgloss.Color(theme.Primary)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		SelectedBar: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(theme.Accent)).
 			Background(lipgloss.Color(theme.SelectedBg)),
 
 		UnselectedBar: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.SelectedBg)),
+			Foreground(lipgloss.Color(theme.SelectedBg)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		SelectedLine: lipgloss.NewStyle().
 			Background(lipgloss.Color(theme.SelectedBg)),
 
 		Status: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Muted)),
+			Foreground(lipgloss.Color(theme.Muted)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		Separator: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Border)),
+			Foreground(lipgloss.Color(theme.Border)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		Match: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Secondary)),
+			Foreground(lipgloss.Color(theme.Secondary)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		Command: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(theme.Primary)),
+			Foreground(lipgloss.Color(theme.Primary)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		Description: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Muted)),
+			Foreground(lipgloss.Color(theme.Muted)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		Query: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(theme.Secondary)),
+			Foreground(lipgloss.Color(theme.Query)).
+		  Background(lipgloss.Color("transparent")),
 
 		Help: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Help)),
+			Foreground(lipgloss.Color(theme.Help)).
+			Background(lipgloss.Color(theme.AppBg)),
 
 		CustomIndicator: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.CustomIndicator)),
+			Foreground(lipgloss.Color(theme.CustomIndicator)).
+			Background(lipgloss.Color(theme.AppBg)),
 	}
 
 	if theme.AppBg != "transparent" && theme.AppBg != "default" && theme.AppBg != "" {
