@@ -93,8 +93,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		default:
-			if len(msg.String()) == 1 {
-				m.query += msg.String()
+			// Handle printable characters (including rapid typing)
+			for _, r := range msg.Runes {
+				if r >= 32 && r < 127 { // printable ASCII range
+					m.query += string(r)
+				}
+			}
+			if len(msg.Runes) > 0 {
 				m.filtered = m.filterShortcuts()
 				m.cursor = 0
 				m.scrollOffset = 0
