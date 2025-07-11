@@ -12,7 +12,7 @@ shortcutter_widget() {
     echo
     
     # Run shortcutter and capture output
-    local result=$(shortcutter 2>/dev/null)
+    local result=$(shortcutter)
     
     # Parse the result format: key:type:target
     if [[ -n "$result" ]]; then

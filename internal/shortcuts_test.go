@@ -107,42 +107,14 @@ func TestDetectShell(t *testing.T) {
 }
 
 func TestGetBuiltinShortcuts(t *testing.T) {
-	shortcuts, err := getBuiltinShortcuts("zsh")
-	if err != nil {
-		t.Errorf("getBuiltinShortcuts(\"zsh\") returned error: %v", err)
-	}
-
-	if len(shortcuts) == 0 {
-		t.Error("getBuiltinShortcuts(\"zsh\") returned empty slice")
-	}
-
-	for _, shortcut := range shortcuts {
-		if shortcut.IsCustom {
-			t.Errorf("Built-in shortcut %q should not be marked as custom", shortcut.Display)
+	// All shells should return error since hardcoded shortcuts are removed
+	shells := []string{"zsh", "bash", "fish", "unknown"}
+	
+	for _, shell := range shells {
+		_, err := getBuiltinShortcuts(shell)
+		if err == nil {
+			t.Errorf("getBuiltinShortcuts(%q) should return error since hardcoded shortcuts are removed", shell)
 		}
-		if shortcut.Type != "widget" && shortcut.Type != "sequence" {
-			t.Errorf("Built-in shortcut %q should have type 'widget' or 'sequence', got %q", shortcut.Display, shortcut.Type)
-		}
-		if shortcut.Target == "" {
-			t.Errorf("Built-in shortcut %q should have a target", shortcut.Display)
-		}
-	}
-
-	expectedShortcuts := []string{"Ctrl+A", "Ctrl+E", "Alt+F", "Alt+B", "Ctrl+R"}
-	shortcutMap := make(map[string]bool)
-	for _, shortcut := range shortcuts {
-		shortcutMap[shortcut.Display] = true
-	}
-
-	for _, expected := range expectedShortcuts {
-		if !shortcutMap[expected] {
-			t.Errorf("Expected shortcut %q not found in built-in shortcuts", expected)
-		}
-	}
-
-	_, err = getBuiltinShortcuts("bash")
-	if err == nil {
-		t.Error("getBuiltinShortcuts(\"bash\") should return error")
 	}
 }
 
@@ -245,22 +217,21 @@ func TestLoadShortcuts(t *testing.T) {
 	originalGetShellEnv := getShellEnv
 	defer func() { getShellEnv = originalGetShellEnv }()
 
+	// Test with zsh - should succeed now that we have proper zsh integration
 	getShellEnv = func() string { return "/bin/zsh" }
-
 	shortcuts, err := LoadShortcuts()
 	if err != nil {
-		t.Errorf("LoadShortcuts() returned error: %v", err)
+		t.Errorf("LoadShortcuts() should succeed with zsh: %v", err)
 	}
-
 	if len(shortcuts) == 0 {
-		t.Error("LoadShortcuts() returned empty slice")
+		t.Error("LoadShortcuts() should return shortcuts for zsh")
 	}
 
+	// Test with bash - should fail because only zsh is supported
 	getShellEnv = func() string { return "/bin/bash" }
-
 	_, err = LoadShortcuts()
 	if err == nil {
-		t.Error("LoadShortcuts() should return error for unsupported shell")
+		t.Error("LoadShortcuts() should return error for non-zsh shell")
 	}
 
 	getShellEnv = func() string { return "" }
@@ -279,11 +250,10 @@ func TestDetectShortcuts(t *testing.T) {
 
 	shortcuts, err := DetectShortcuts()
 	if err != nil {
-		t.Errorf("DetectShortcuts() returned error: %v", err)
+		t.Errorf("DetectShortcuts() should succeed with zsh: %v", err)
 	}
-
 	if len(shortcuts) == 0 {
-		t.Error("DetectShortcuts() returned empty slice")
+		t.Error("DetectShortcuts() should return shortcuts for zsh")
 	}
 }
 
@@ -411,5 +381,142 @@ func TestNormalizeKeyEdgeCases(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("normalizeKey(%q) = %q, want %q", test.input, result, test.expected)
 		}
+	}
+}
+
+func TestLoadDynamicShortcuts(t *testing.T) {
+	tests := []struct {
+		name      string
+		shell     string
+		shouldErr bool
+	}{
+		{"bash shell", "bash", true},  // Should fail - dynamic loading only for zsh
+		{"fish shell", "fish", true},  // Should fail - dynamic loading only for zsh
+		{"zsh shell", "zsh", false},   // Should succeed with zsh integration
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shortcuts, err := loadDynamicShortcuts(tt.shell)
+			
+			if tt.shouldErr {
+				if err == nil {
+					t.Errorf("loadDynamicShortcuts(%q) should have failed", tt.shell)
+				}
+				return
+			}
+			
+			if err != nil {
+				t.Fatalf("loadDynamicShortcuts(%q) error: %v", tt.shell, err)
+			}
+
+			// Verify shortcuts have required fields
+			for i, shortcut := range shortcuts {
+				if shortcut.Display == "" {
+					t.Errorf("shortcuts[%d].Display is empty", i)
+				}
+				if shortcut.Type == "" {
+					t.Errorf("shortcuts[%d].Type is empty", i)
+				}
+				if shortcut.Target == "" {
+					t.Errorf("shortcuts[%d].Target is empty", i)
+				}
+			}
+		})
+	}
+}
+
+func TestConvertBindkeyToShortcuts(t *testing.T) {
+	bindkeyEntries := []BindkeyEntry{
+		{EscapeSequence: "^A", WidgetName: "beginning-of-line", DisplayName: "Ctrl+A"},
+		{EscapeSequence: "^E", WidgetName: "end-of-line", DisplayName: "Ctrl+E"},
+		{EscapeSequence: "^F", WidgetName: "forward-char", DisplayName: "Ctrl+F"},
+	}
+
+	manDescriptions := map[string]WidgetDescription{
+		"beginning-of-line": {
+			WidgetName:       "beginning-of-line",
+			ShortDescription: "Move to the beginning of the line.",
+			FullDescription:  "Move to the beginning of the line.",
+		},
+		"end-of-line": {
+			WidgetName:       "end-of-line",
+			ShortDescription: "Move to the end of the line.",
+			FullDescription:  "Move to the end of the line.",
+		},
+		// "forward-char" missing to test fallback
+	}
+
+	shortcuts := convertBindkeyToShortcuts(bindkeyEntries, manDescriptions)
+
+	if len(shortcuts) != 3 {
+		t.Fatalf("convertBindkeyToShortcuts() returned %d shortcuts, want 3", len(shortcuts))
+	}
+
+	expectedShortcuts := []struct {
+		display     string
+		description string
+		target      string
+	}{
+		{"Ctrl+A", "Move to the beginning of the line.", "beginning-of-line"},
+		{"Ctrl+E", "Move to the end of the line.", "end-of-line"},
+		{"Ctrl+F", "forward-char", "forward-char"}, // Should fall back to widget name
+	}
+
+	for i, expected := range expectedShortcuts {
+		shortcut := shortcuts[i]
+		if shortcut.Display != expected.display {
+			t.Errorf("shortcuts[%d].Display = %q, want %q", i, shortcut.Display, expected.display)
+		}
+		if shortcut.Description != expected.description {
+			t.Errorf("shortcuts[%d].Description = %q, want %q", i, shortcut.Description, expected.description)
+		}
+		if shortcut.Target != expected.target {
+			t.Errorf("shortcuts[%d].Target = %q, want %q", i, shortcut.Target, expected.target)
+		}
+		if shortcut.Type != "widget" {
+			t.Errorf("shortcuts[%d].Type = %q, want %q", i, shortcut.Type, "widget")
+		}
+		if shortcut.IsCustom != false {
+			t.Errorf("shortcuts[%d].IsCustom = %v, want %v", i, shortcut.IsCustom, false)
+		}
+	}
+}
+
+func TestConvertCacheToShortcuts(t *testing.T) {
+	cacheData := &CacheData{
+		BindkeyEntries: []BindkeyEntry{
+			{EscapeSequence: "^A", WidgetName: "beginning-of-line", DisplayName: "Ctrl+A"},
+			{EscapeSequence: "^E", WidgetName: "end-of-line", DisplayName: "Ctrl+E"},
+		},
+		ManDescriptions: map[string]WidgetDescription{
+			"beginning-of-line": {
+				WidgetName:       "beginning-of-line",
+				ShortDescription: "Move to the beginning of the line.",
+				FullDescription:  "Move to the beginning of the line.",
+			},
+			"end-of-line": {
+				WidgetName:       "end-of-line",
+				ShortDescription: "Move to the end of the line.",
+				FullDescription:  "Move to the end of the line.",
+			},
+		},
+	}
+
+	shortcuts := convertCacheToShortcuts(cacheData)
+
+	if len(shortcuts) != 2 {
+		t.Fatalf("convertCacheToShortcuts() returned %d shortcuts, want 2", len(shortcuts))
+	}
+
+	// Test first shortcut
+	if shortcuts[0].Display != "Ctrl+A" {
+		t.Errorf("shortcuts[0].Display = %q, want %q", shortcuts[0].Display, "Ctrl+A")
+	}
+	if shortcuts[0].Description != "Move to the beginning of the line." {
+		t.Errorf("shortcuts[0].Description = %q, want %q", shortcuts[0].Description, "Move to the beginning of the line.")
+	}
+	if shortcuts[0].Target != "beginning-of-line" {
+		t.Errorf("shortcuts[0].Target = %q, want %q", shortcuts[0].Target, "beginning-of-line")
 	}
 }
