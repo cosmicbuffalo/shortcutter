@@ -341,11 +341,24 @@ func (m model) View() string {
 func (m model) renderSplitView() string {
 	var result strings.Builder
 
-	// Calculate column widths
-	leftWidth := 22
-	rightWidth := m.width - (leftWidth + 2) // 2 for padding
-	if rightWidth < 20 {
-		rightWidth = 20
+	// Calculate column widths dynamically based on terminal width
+	// Use 20% for commands, 80% for descriptions with minimum widths
+	minLeftWidth := 20
+	minRightWidth := 30
+	
+	leftWidth := int(float64(m.width) * 0.2)
+	if leftWidth < minLeftWidth {
+		leftWidth = minLeftWidth
+	}
+	
+	rightWidth := m.width - leftWidth
+	if rightWidth < minRightWidth {
+		// If terminal is too narrow, prioritize description column
+		rightWidth = minRightWidth
+		leftWidth = m.width - rightWidth
+		if leftWidth < minLeftWidth {
+			leftWidth = minLeftWidth
+		}
 	}
 
 	// Query line (spans full width)
@@ -373,13 +386,12 @@ func (m model) renderContentLines(leftWidth int, rightWidth int) []string {
 	status := fmt.Sprintf("  %d/%d ", filteredCount, totalCount)
 	statusLine := m.styles.Status.Render(status)
 
-	separatorLength := leftWidth - len(status) - 2
-	if separatorLength > 0 {
-		statusLine += m.styles.Separator.Render(strings.Repeat("─", separatorLength))
-	}
-
-	// Add right pane header if in expanded mode
+	// Add right pane header if in expanded mode, otherwise fill with separator
 	if m.expandedMode {
+		separatorLength := leftWidth - len(status) - 2
+		if separatorLength > 0 {
+			statusLine += m.styles.Separator.Render(strings.Repeat("─", separatorLength))
+		}
 		widgetName := ""
 		if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 			widgetName = m.filtered[m.cursor].Target
@@ -391,9 +403,15 @@ func (m model) renderContentLines(leftWidth int, rightWidth int) []string {
 		remainingWidth := rightWidth - len(rightHeader)
 		if remainingWidth/2 > 0 {
 			statusLine += m.styles.Separator.Render(strings.Repeat("─", remainingWidth/2))
-			rightHeader += strings.Repeat("─", remainingWidth-(remainingWidth/2))
+			rightHeader += m.styles.Separator.Render(strings.Repeat("─", remainingWidth-(remainingWidth/2)))
 		}
 		statusLine += m.styles.Command.Render(rightHeader)
+	} else {
+		// Not in expanded mode - fill the entire width with separator
+		separatorLength := (leftWidth + rightWidth) - len(status) - 2
+		if separatorLength > 0 {
+			statusLine += m.styles.Separator.Render(strings.Repeat("─", separatorLength))
+		}
 	}
 
 	lines = append(lines, statusLine)
@@ -465,57 +483,56 @@ func (m model) renderContentLines(leftWidth int, rightWidth int) []string {
 }
 
 func (m model) renderShortcut(shortcut Shortcut, isSelected bool, maxWidth int) string {
+	// Reserve space for bar (1) + space (1) + padding (2) = 4 chars
 	commandWidth := maxWidth - 4
 	command := shortcut.Display
+	
+	// Truncate command text if too long (before styling)
 	if len(command) > commandWidth {
 		command = command[:commandWidth-3] + "..."
-	} else {
-		command = fmt.Sprintf("%-*s", commandWidth, command)
 	}
+	
+	// Pad command to exact width (before styling)
+	paddedCommand := fmt.Sprintf("%-*s", commandWidth, command)
+	
+	// Apply highlighting to the padded command
+	highlightedCommand := m.highlightMatches(paddedCommand, m.query, m.styles.Command, isSelected, m.styles)
 
-	highlightedCommand := m.highlightMatches(command, m.query, m.styles.Command, isSelected, m.styles)
-
-	var line string
+	// Build the line with proper components
+	var barChar, spaceBg, columnBg string
 	if isSelected {
-		barChar := m.styles.SelectedBar.Render("▌")
-		spaceBg := m.styles.SelectedLine.Render(" ")
-		columnBg := m.styles.AppBackground.Render("  ")
-		line = fmt.Sprintf("%s%s%s%s", barChar, spaceBg, highlightedCommand, columnBg)
-		line = m.styles.AppBackground.Render(line)
+		barChar = m.styles.SelectedBar.Render("▌")
+		spaceBg = m.styles.SelectedLine.Render(" ")
+		columnBg = m.styles.SelectedLine.Render("  ")
 	} else {
-		barChar := m.styles.UnselectedBar.Render("█")
-		spaceBg := m.styles.AppBackground.Render(" ")
-		columnBg := m.styles.AppBackground.Render("  ")
-		line = fmt.Sprintf("%s%s%s%s", barChar, spaceBg, highlightedCommand, columnBg)
+		barChar = m.styles.UnselectedBar.Render("█")
+		spaceBg = m.styles.AppBackground.Render(" ")
+		columnBg = m.styles.AppBackground.Render("  ")
 	}
-
-	// Ensure line is exactly the right width
-	if len(line) > maxWidth {
-		line = line[:maxWidth]
-	} else if len(line) < maxWidth {
-		line += m.styles.AppBackground.Render(strings.Repeat(" ", maxWidth-len(line)))
-	}
+	
+	// Combine components
+	line := barChar + spaceBg + highlightedCommand + columnBg
 
 	return line
 }
 
 func (m model) renderDescription(shortcut Shortcut, maxWidth int) string {
 	description := shortcut.Description
-	if len(description) > maxWidth-2 {
-		description = description[:maxWidth-5] + "..."
-	} else {
-		description = fmt.Sprintf("%-*s", maxWidth-2, description)
+	descWidth := maxWidth - 2
+	
+	// Truncate description text if too long (before styling)
+	if len(description) > descWidth {
+		description = description[:descWidth-3] + "..."
 	}
+	
+	// Pad description to exact width (before styling)
+	paddedDesc := fmt.Sprintf("%-*s", descWidth, description)
+	
+	// Apply highlighting to the padded description
+	highlightedDesc := m.highlightMatches(paddedDesc, m.query, m.styles.Description, false, m.styles)
 
-	highlightedDesc := m.highlightMatches(description, m.query, m.styles.Description, false, m.styles)
-
-	line := m.styles.AppBackground.Render(highlightedDesc)
-	// Ensure line is exactly the right width
-	if len(line) > maxWidth {
-		line = line[:maxWidth]
-	} else if len(line) < maxWidth {
-		line += m.styles.AppBackground.Render(strings.Repeat(" ", maxWidth-len(line)))
-	}
+	// Add padding spaces around the description
+	line := "  " + highlightedDesc
 
 	return line
 }
