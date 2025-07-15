@@ -197,7 +197,7 @@ func (m model) filterShortcuts() []Shortcut {
 
 	targets := make([]string, len(m.shortcuts))
 	for i, shortcut := range m.shortcuts {
-		targets[i] = shortcut.Display + " " + shortcut.Description
+		targets[i] = shortcut.Display + " " + shortcut.Target + " " + shortcut.Description
 	}
 
 	matches := fuzzy.Find(m.query, targets)
@@ -245,11 +245,31 @@ func (m *model) prepareExpandedText() {
 	m.expandedText = m.wrapText(fullDesc, maxWidth)
 }
 
-// wrapText breaks text into lines that fit within the specified width
+// wrapText breaks text into lines that fit within the specified width, preserving paragraph breaks
 func (m *model) wrapText(text string, maxWidth int) []string {
-	words := strings.Fields(text)
+	// Split text into paragraphs first
+	paragraphs := strings.Split(text, "\n\n")
+	var lines []string
+	
+	for i, paragraph := range paragraphs {
+		if i > 0 {
+			// Add empty line between paragraphs
+			lines = append(lines, "")
+		}
+		
+		// Wrap each paragraph separately
+		paragraphLines := m.wrapParagraph(paragraph, maxWidth)
+		lines = append(lines, paragraphLines...)
+	}
+	
+	return lines
+}
+
+// wrapParagraph wraps a single paragraph (no internal newlines)
+func (m *model) wrapParagraph(paragraph string, maxWidth int) []string {
+	words := strings.Fields(paragraph)
 	if len(words) == 0 {
-		return []string{text}
+		return []string{paragraph}
 	}
 
 	lines := []string{}
@@ -345,12 +365,12 @@ func (m model) renderSplitView() string {
 	// Use 20% for commands, 80% for descriptions with minimum widths
 	minLeftWidth := 20
 	minRightWidth := 30
-	
+
 	leftWidth := int(float64(m.width) * 0.2)
 	if leftWidth < minLeftWidth {
 		leftWidth = minLeftWidth
 	}
-	
+
 	rightWidth := m.width - leftWidth
 	if rightWidth < minRightWidth {
 		// If terminal is too narrow, prioritize description column
@@ -486,15 +506,15 @@ func (m model) renderShortcut(shortcut Shortcut, isSelected bool, maxWidth int) 
 	// Reserve space for bar (1) + space (1) + padding (2) = 4 chars
 	commandWidth := maxWidth - 4
 	command := shortcut.Display
-	
+
 	// Truncate command text if too long (before styling)
 	if len(command) > commandWidth {
 		command = command[:commandWidth-3] + "..."
 	}
-	
+
 	// Pad command to exact width (before styling)
 	paddedCommand := fmt.Sprintf("%-*s", commandWidth, command)
-	
+
 	// Apply highlighting to the padded command
 	highlightedCommand := m.highlightMatches(paddedCommand, m.query, m.styles.Command, isSelected, m.styles)
 
@@ -509,7 +529,7 @@ func (m model) renderShortcut(shortcut Shortcut, isSelected bool, maxWidth int) 
 		spaceBg = m.styles.AppBackground.Render(" ")
 		columnBg = m.styles.AppBackground.Render("  ")
 	}
-	
+
 	// Combine components
 	line := barChar + spaceBg + highlightedCommand + columnBg
 
@@ -519,15 +539,15 @@ func (m model) renderShortcut(shortcut Shortcut, isSelected bool, maxWidth int) 
 func (m model) renderDescription(shortcut Shortcut, maxWidth int) string {
 	description := shortcut.Description
 	descWidth := maxWidth - 2
-	
+
 	// Truncate description text if too long (before styling)
 	if len(description) > descWidth {
 		description = description[:descWidth-3] + "..."
 	}
-	
+
 	// Pad description to exact width (before styling)
 	paddedDesc := fmt.Sprintf("%-*s", descWidth, description)
-	
+
 	// Apply highlighting to the padded description
 	highlightedDesc := m.highlightMatches(paddedDesc, m.query, m.styles.Description, false, m.styles)
 

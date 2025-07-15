@@ -17,7 +17,8 @@ type WidgetDescription struct {
 
 // getWidgetDescriptions extracts widget descriptions from man zshzle
 func getWidgetDescriptions() (map[string]WidgetDescription, error) {
-	cmd := exec.Command("man", "zshzle")
+	// Use "man zshzle | col -b" to get clean text without formatting
+	cmd := exec.Command("sh", "-c", "man zshzle | col -b")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute man zshzle command: %w", err)
@@ -31,22 +32,23 @@ func ParseManPageDescriptions(content string) (map[string]WidgetDescription, err
 	descriptions := make(map[string]WidgetDescription)
 	scanner := bufio.NewScanner(strings.NewReader(content))
 
-	// Regex to match widget entries: "widget-name (keys) (keys) (keys)"
-	// Widget headers can be indented with spaces
-	widgetHeaderRegex := regexp.MustCompile(`^([a-zA-Z0-9_-]+)(\s*\([^)]*\))+\s*$`)
-	
+	// Regex to match widget entries: "       widget-name (keys) (keys) (keys)"
+	// Widget headers are indented with spaces
+	widgetHeaderRegex := regexp.MustCompile(`^\s+([a-zA-Z0-9_-]+)(\s*\([^)]*\))+\s*$`)
+
 	var currentWidget string
 	var descriptionLines []string
+	var hasContent bool // Track if we have non-empty content in current paragraph
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(line)
 
 		// Check if this line is a widget header
-		if matches := widgetHeaderRegex.FindStringSubmatch(trimmedLine); len(matches) > 1 {
+		if matches := widgetHeaderRegex.FindStringSubmatch(line); len(matches) > 1 {
 			// Save previous widget if we have one
 			if currentWidget != "" && len(descriptionLines) > 0 {
-				fullDescription := strings.Join(descriptionLines, " ")
+				fullDescription := joinDescriptionLines(descriptionLines)
 				shortDescription := extractFirstSentence(fullDescription)
 				if shortDescription != "" {
 					descriptions[currentWidget] = WidgetDescription{
@@ -60,22 +62,28 @@ func ParseManPageDescriptions(content string) (map[string]WidgetDescription, err
 			// Start new widget
 			currentWidget = matches[1]
 			descriptionLines = nil
+			hasContent = false
 			continue
 		}
 
 		// If we're tracking a widget and this looks like a description line
 		if currentWidget != "" {
-			
-			// Skip empty lines
+
+			// Handle empty lines - preserve paragraph breaks
 			if trimmedLine == "" {
+				// Add paragraph break if we have content
+				if hasContent {
+					descriptionLines = append(descriptionLines, "")
+					hasContent = false
+				}
 				continue
 			}
 
 			// Stop if we hit another widget header or section
-			if isNewSection(line) {
+			if isNewSection(line) || isAnotherWidget(line) {
 				// Save current widget
 				if len(descriptionLines) > 0 {
-					fullDescription := strings.Join(descriptionLines, " ")
+					fullDescription := joinDescriptionLines(descriptionLines)
 					shortDescription := extractFirstSentence(fullDescription)
 					if shortDescription != "" {
 						descriptions[currentWidget] = WidgetDescription{
@@ -87,19 +95,21 @@ func ParseManPageDescriptions(content string) (map[string]WidgetDescription, err
 				}
 				currentWidget = ""
 				descriptionLines = nil
+				hasContent = false
 				continue
 			}
 
 			// Add this line to the description if it looks like description text
 			if isDescriptionLine(line) {
 				descriptionLines = append(descriptionLines, trimmedLine)
+				hasContent = true
 			}
 		}
 	}
 
 	// Handle the last widget if we were processing one
 	if currentWidget != "" && len(descriptionLines) > 0 {
-		fullDescription := strings.Join(descriptionLines, " ")
+		fullDescription := joinDescriptionLines(descriptionLines)
 		shortDescription := extractFirstSentence(fullDescription)
 		if shortDescription != "" {
 			descriptions[currentWidget] = WidgetDescription{
@@ -128,6 +138,7 @@ func isNewSection(line string) bool {
 		strings.HasPrefix(line, "BUILTIN WIDGETS") ||
 		strings.HasPrefix(line, "USER-DEFINED WIDGETS") ||
 		strings.HasPrefix(line, "SPECIAL WIDGETS") ||
+		strings.HasPrefix(line, "STANDARD WIDGETS") ||
 		strings.HasPrefix(line, "Text Objects") ||
 		strings.HasPrefix(line, "SEE ALSO") ||
 		strings.HasPrefix(line, "AUTHOR") {
@@ -135,7 +146,7 @@ func isNewSection(line string) bool {
 	}
 
 	// Check for subsection headers (indented and title-case)
-	if strings.HasPrefix(line, "   ") && 
+	if strings.HasPrefix(line, "   ") &&
 		(strings.Contains(line, "Movement") ||
 		 strings.Contains(line, "History") ||
 		 strings.Contains(line, "Modifying") ||
@@ -143,6 +154,21 @@ func isNewSection(line string) bool {
 		 strings.Contains(line, "Completion") ||
 		 strings.Contains(line, "Miscellaneous")) {
 		return true
+	}
+
+	return false
+}
+
+// isAnotherWidget returns true if the line looks like another widget definition
+func isAnotherWidget(line string) bool {
+	trimmed := strings.TrimSpace(line)
+
+	// Check if line starts with whitespace and contains a widget-like name
+	if strings.HasPrefix(line, "       ") && len(trimmed) > 0 {
+		// Widget names are typically lowercase with hyphens and contain no spaces
+		if matched, _ := regexp.MatchString(`^[a-z][a-z0-9-]*[a-z0-9]$`, trimmed); matched {
+			return true
+		}
 	}
 
 	return false
@@ -162,6 +188,36 @@ func isDescriptionLine(line string) bool {
 	return strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
 }
 
+// joinDescriptionLines joins description lines preserving paragraph breaks
+func joinDescriptionLines(lines []string) string {
+	var result strings.Builder
+	var currentParagraph strings.Builder
+	
+	for _, line := range lines {
+		if line == "" {
+			// Empty line indicates paragraph break
+			if currentParagraph.Len() > 0 {
+				result.WriteString(strings.TrimSpace(currentParagraph.String()))
+				result.WriteString("\n\n")
+				currentParagraph.Reset()
+			}
+		} else {
+			// Add line to current paragraph
+			if currentParagraph.Len() > 0 {
+				currentParagraph.WriteString(" ")
+			}
+			currentParagraph.WriteString(line)
+		}
+	}
+	
+	// Add final paragraph if exists
+	if currentParagraph.Len() > 0 {
+		result.WriteString(strings.TrimSpace(currentParagraph.String()))
+	}
+	
+	return strings.TrimSpace(result.String())
+}
+
 // extractFirstSentence extracts the first sentence from a description
 func extractFirstSentence(text string) string {
 	if text == "" {
@@ -175,7 +231,7 @@ func extractFirstSentence(text string) string {
 	// Find the first sentence ending - look for punctuation followed by space or end of string
 	sentenceEndRegex := regexp.MustCompile(`([.!?])(\s|$)`)
 	match := sentenceEndRegex.FindStringIndex(text)
-	
+
 	if match != nil {
 		// Found a sentence ending, return up to and including the punctuation
 		endIndex := match[0] + 1 // Include the punctuation mark
@@ -188,7 +244,7 @@ func extractFirstSentence(text string) string {
 		text = text[:97] + "..."
 	} else {
 		// Add a period if it doesn't end with punctuation
-		if text != "" && !strings.HasSuffix(text, ".") && 
+		if text != "" && !strings.HasSuffix(text, ".") &&
 		   !strings.HasSuffix(text, "!") && !strings.HasSuffix(text, "?") {
 			text += "."
 		}
@@ -201,7 +257,7 @@ func getWidgetDescription(widgetName string, descriptions map[string]WidgetDescr
 	if desc, exists := descriptions[widgetName]; exists {
 		return desc.ShortDescription
 	}
-	
+
 	// Fallback: return the widget name itself
 	return widgetName
 }
@@ -211,7 +267,12 @@ func getWidgetFullDescription(widgetName string, descriptions map[string]WidgetD
 	if desc, exists := descriptions[widgetName]; exists {
 		return desc.FullDescription
 	}
-	
+
 	// Fallback: return the widget name itself
 	return widgetName
+}
+
+// GetWidgetDescriptionsTest is a test function to check our parsing
+func GetWidgetDescriptionsTest() (map[string]WidgetDescription, error) {
+	return getWidgetDescriptions()
 }
